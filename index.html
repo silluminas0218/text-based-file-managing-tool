@@ -16,12 +16,19 @@
         /* Auth UI */
         #authContainer { width: 300px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        
+        /* 1. FIX: Password Wrapper & Input Padding */
         .password-wrapper { position: relative; width: 100%; margin-bottom: 10px; }
         input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 14px; }
+        #password { padding-right: 45px; } /* 为右侧眼睛留出空间 */
         
+        /* 2. FIX: Specific width for toggle button */
         .toggle-password {
-            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-            background: none; border: none; cursor: pointer; color: #8e8e93; display: flex; padding: 0;
+            position: absolute; right: 0; top: 0; 
+            height: 100%; width: 40px !important; /* 限制点击区域仅在右侧40px */
+            background: none !important; border: none; cursor: pointer; 
+            color: #8e8e93; display: flex; align-items: center; justify-content: center;
+            padding: 0; margin: 0; z-index: 2;
         }
 
         /* App UI */
@@ -34,8 +41,7 @@
         
         .note-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; position: relative; }
         .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; align-items: center; gap: 8px; }
-        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; padding: 0; display: flex; align-items: center; }
-        .btn-small:hover { color: #007aff; }
+        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; padding: 0; display: flex; align-items: center; width: auto; }
 
         /* Modal Styles */
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
@@ -59,8 +65,8 @@
                     </svg>
                 </button>
             </div>
-            <button class="btn-primary" onclick="handleAuth()">Go</button>
-            <button style="background:none; color:#007aff; font-size:12px; margin-top:10px" onclick="toggleAuthMode()">Switch Mode</button>
+            <button class="btn-primary" id="mainAuthBtn" onclick="handleAuth()">Sign In</button>
+            <button style="background:none; color:#007aff; font-size:12px; margin-top:10px" id="toggleAuthBtn" onclick="toggleAuthMode()">New here? Create account</button>
         </div>
     </div>
 
@@ -86,7 +92,7 @@
     </div>
 
     <script>
-        // --- YOUR CONFIG HERE ---
+        // --- 请在此填入你的 Firebase 配置 ---
         const firebaseConfig = {
             apiKey: "AIzaSyBdWwwAQKf2WVABXqmOEyL2jVQeQXkvg1o",
             authDomain: "web-notepad-1c001.firebaseapp.com",
@@ -112,34 +118,34 @@
                 document.getElementById('appContainer').classList.remove('hidden');
                 db.ref(`users/${user.uid}/notes`).on('value', snap => renderNotes(snap.val()));
             } else {
+                currentUser = null;
                 document.getElementById('authContainer').classList.remove('hidden');
                 document.getElementById('appContainer').classList.add('hidden');
             }
         });
 
-        /* --- 1. FIX: PASSWORD EYE VISIBILITY --- */
         function togglePasswordVisibility() {
             const pInput = document.getElementById('password');
             const eyeIcon = document.getElementById('eyeIcon');
-            
             if (pInput.type === 'password') {
                 pInput.type = 'text';
-                // Switch to "Eye Off" (Slash) icon
-                eyeIcon.innerHTML = `
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                `;
+                eyeIcon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`;
             } else {
                 pInput.type = 'password';
-                // Switch back to "Eye Open" icon
-                eyeIcon.innerHTML = `
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                `;
+                eyeIcon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
             }
         }
 
-        /* --- 2. FIX: METADATA & DETAILS --- */
+        // 恢复文案逻辑
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
+            document.getElementById('mainAuthBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
+            document.getElementById('toggleAuthBtn').innerText = isSignUpMode ? "Already have an account? Login" : "New here? Create account";
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
+
         function getDeviceType() {
             const ua = navigator.userAgent;
             if (/Mobile|Android|iP(hone|od)/i.test(ua)) return "Mobile";
@@ -151,20 +157,16 @@
             const title = document.getElementById('noteTitle').value.trim();
             const content = document.getElementById('noteContent').value.trim();
             if (!title && !content) return;
-
             const now = new Date().toLocaleString();
             const device = getDeviceType();
-
             if (currentEditingId) {
                 db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
-                    title: title, content: content,
-                    lastEditedAt: now, lastDevice: device
+                    title: title, content: content, lastEditedAt: now, lastDevice: device
                 }).then(() => resetUI());
             } else {
                 const id = Date.now().toString();
                 db.ref(`users/${currentUser.uid}/notes/${id}`).set({
-                    id: id, title: title, content: content,
-                    createdAt: now, lastEditedAt: now, lastDevice: device
+                    id: id, title: title, content: content, createdAt: now, lastEditedAt: now, lastDevice: device
                 }).then(() => resetUI());
             }
         }
@@ -176,7 +178,7 @@
                 const fileSize = new Blob([n.title + n.content]).size;
                 const html = `
                     <div class="detail-item"><span class="detail-label">Characters:</span> <span>${charCount}</span></div>
-                    <div class="detail-item"><span class="detail-label">Approx. Size:</span> <span>${fileSize} Bytes</span></div>
+                    <div class="detail-item"><span class="detail-label">Size:</span> <span>${fileSize} Bytes</span></div>
                     <div class="detail-item"><span class="detail-label">Created:</span> <span>${n.createdAt || 'N/A'}</span></div>
                     <div class="detail-item"><span class="detail-label">Last Edit:</span> <span>${n.lastEditedAt}</span></div>
                     <div class="detail-item"><span class="detail-label">Device:</span> <span>${n.lastDevice}</span></div>
@@ -187,21 +189,11 @@
         }
 
         function closeDetails() { document.getElementById('detailsModal').classList.add('hidden'); }
-
-        /* --- UI & AUTH HELPERS --- */
         function handleAuth() {
             const e = document.getElementById('email').value;
             const p = document.getElementById('password').value;
             isSignUpMode ? auth.createUserWithEmailAndPassword(e, p) : auth.signInWithEmailAndPassword(e, p);
         }
-
-        function toggleAuthMode() {
-            isSignUpMode = !isSignUpMode;
-            document.getElementById('authTitle').innerText = isSignUpMode ? "Sign Up" : "Sign In";
-            document.getElementById('email').value = '';
-            document.getElementById('password').value = '';
-        }
-
         function signOut() { auth.signOut(); }
         function deleteNote(id) { if(confirm("Delete?")) db.ref(`users/${currentUser.uid}/notes/${id}`).remove(); }
         function editNote(id) {
@@ -230,8 +222,8 @@
                     <div class="note-card">
                         <div style="font-size:10px; color:#999">${note.lastEditedAt}</div>
                         <div class="action-buttons">
-                            <button class="btn-small" onclick="showDetails('${note.id}')" title="Details">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <button class="btn-small" onclick="showDetails('${note.id}')">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <circle cx="8" cy="12" r="0.5" fill="currentColor"></circle>
                                     <circle cx="12" cy="12" r="0.5" fill="currentColor"></circle>
