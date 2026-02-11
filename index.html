@@ -10,7 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
-        /* --- CSS STYLES --- */
         body { font-family: -apple-system, sans-serif; background-color: #f2f2f7; margin: 0; display: flex; justify-content: center; min-height: 100vh; }
         .hidden { display: none !important; }
         
@@ -20,32 +19,28 @@
         .password-wrapper { position: relative; width: 100%; margin-bottom: 10px; }
         input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 14px; }
         
+        .toggle-password {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: #8e8e93; display: flex; padding: 0;
+        }
+
         /* App UI */
         #appContainer { width: 100%; max-width: 400px; padding: 20px; }
         .input-group { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
         textarea { width: 100%; height: 100px; border: none; outline: none; resize: none; font-size: 16px; margin-top: 10px; }
         
-        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
         .btn-primary { background-color: #007aff; color: white; }
         
-        /* Note List */
         .note-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; position: relative; }
-        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; align-items: center; }
-        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; margin-left: 8px; padding: 0; display: flex; align-items: center; }
+        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; align-items: center; gap: 8px; }
+        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; padding: 0; display: flex; align-items: center; }
         .btn-small:hover { color: #007aff; }
 
-        /* MODAL STYLES */
-        .modal-overlay { 
-            position: fixed; top:0; left:0; width:100%; height:100%; 
-            background: rgba(0,0,0,0.4); z-index: 2000; 
-            display: flex; justify-content: center; align-items: center;
-        }
-        .modal-box { 
-            background: white; width: 85%; max-width: 320px; padding: 20px; 
-            border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-        }
-        .modal-box h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .detail-item { font-size: 13px; margin: 10px 0; color: #333; display: flex; justify-content: space-between; }
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .modal-box { background: white; width: 85%; max-width: 320px; padding: 20px; border-radius: 16px; }
+        .detail-item { font-size: 13px; margin: 10px 0; display: flex; justify-content: space-between; }
         .detail-label { color: #8e8e93; }
     </style>
 </head>
@@ -57,7 +52,12 @@
             <input type="email" id="email" placeholder="Email">
             <div class="password-wrapper">
                 <input type="password" id="password" placeholder="Password">
-                <button type="button" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; width:auto; padding:0; color:#999" onclick="togglePasswordVisibility()">👁️</button>
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
+                    <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
             </div>
             <button class="btn-primary" onclick="handleAuth()">Go</button>
             <button style="background:none; color:#007aff; font-size:12px; margin-top:10px" onclick="toggleAuthMode()">Switch Mode</button>
@@ -86,7 +86,7 @@
     </div>
 
     <script>
-        /* --- CONFIGURATION --- */
+        // --- YOUR CONFIG HERE ---
         const firebaseConfig = {
             apiKey: "AIzaSyBdWwwAQKf2WVABXqmOEyL2jVQeQXkvg1o",
             authDomain: "web-notepad-1c001.firebaseapp.com",
@@ -105,7 +105,6 @@
         let currentEditingId = null;
         let isSignUpMode = false;
 
-        /* --- AUTH OBSERVER --- */
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
@@ -118,7 +117,36 @@
             }
         });
 
-        /* --- NOTE LOGIC --- */
+        /* --- 1. FIX: PASSWORD EYE VISIBILITY --- */
+        function togglePasswordVisibility() {
+            const pInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            if (pInput.type === 'password') {
+                pInput.type = 'text';
+                // Switch to "Eye Off" (Slash) icon
+                eyeIcon.innerHTML = `
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                `;
+            } else {
+                pInput.type = 'password';
+                // Switch back to "Eye Open" icon
+                eyeIcon.innerHTML = `
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                `;
+            }
+        }
+
+        /* --- 2. FIX: METADATA & DETAILS --- */
+        function getDeviceType() {
+            const ua = navigator.userAgent;
+            if (/Mobile|Android|iP(hone|od)/i.test(ua)) return "Mobile";
+            if (/iPad|Tablet/i.test(ua)) return "Tablet";
+            return "Desktop";
+        }
+
         function saveNote() {
             const title = document.getElementById('noteTitle').value.trim();
             const content = document.getElementById('noteContent').value.trim();
@@ -126,47 +154,32 @@
 
             const now = new Date().toLocaleString();
             const device = getDeviceType();
-            
+
             if (currentEditingId) {
-                /* UPDATE EXISTING NOTE */
-                db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).once('value').then(snap => {
-                    const oldNote = snap.val();
-                    db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
-                        title: title,
-                        content: content,
-                        lastEditedAt: now,
-                        lastDevice: device
-                    });
+                db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
+                    title: title, content: content,
+                    lastEditedAt: now, lastDevice: device
                 }).then(() => resetUI());
             } else {
-                /* CREATE NEW NOTE */
                 const id = Date.now().toString();
                 db.ref(`users/${currentUser.uid}/notes/${id}`).set({
-                    id: id,
-                    title: title,
-                    content: content,
-                    createdAt: now,
-                    lastEditedAt: now,
-                    lastDevice: device
+                    id: id, title: title, content: content,
+                    createdAt: now, lastEditedAt: now, lastDevice: device
                 }).then(() => resetUI());
             }
         }
 
-        /**
-         * Calculate and display note metadata in a modal
-         */
         function showDetails(id) {
             db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
-                const note = snap.val();
-                const charCount = note.content.length + note.title.length;
-                const fileSize = new Blob([note.title + note.content]).size; // Estimated size in Bytes
-
+                const n = snap.val();
+                const charCount = (n.title + n.content).length;
+                const fileSize = new Blob([n.title + n.content]).size;
                 const html = `
                     <div class="detail-item"><span class="detail-label">Characters:</span> <span>${charCount}</span></div>
                     <div class="detail-item"><span class="detail-label">Approx. Size:</span> <span>${fileSize} Bytes</span></div>
-                    <div class="detail-item"><span class="detail-label">Created:</span> <span>${note.createdAt}</span></div>
-                    <div class="detail-item"><span class="detail-label">Last Edit:</span> <span>${note.lastEditedAt}</span></div>
-                    <div class="detail-item"><span class="detail-label">Last Device:</span> <span>${note.lastDevice}</span></div>
+                    <div class="detail-item"><span class="detail-label">Created:</span> <span>${n.createdAt || 'N/A'}</span></div>
+                    <div class="detail-item"><span class="detail-label">Last Edit:</span> <span>${n.lastEditedAt}</span></div>
+                    <div class="detail-item"><span class="detail-label">Device:</span> <span>${n.lastDevice}</span></div>
                 `;
                 document.getElementById('detailsContent').innerHTML = html;
                 document.getElementById('detailsModal').classList.remove('hidden');
@@ -175,17 +188,7 @@
 
         function closeDetails() { document.getElementById('detailsModal').classList.add('hidden'); }
 
-        /**
-         * Simple Device Detection Logic
-         */
-        function getDeviceType() {
-            const ua = navigator.userAgent;
-            if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
-            if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated/i.test(ua)) return "Mobile";
-            return "Desktop";
-        }
-
-        /* --- AUTH & UI HELPERS --- */
+        /* --- UI & AUTH HELPERS --- */
         function handleAuth() {
             const e = document.getElementById('email').value;
             const p = document.getElementById('password').value;
@@ -195,17 +198,12 @@
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
             document.getElementById('authTitle').innerText = isSignUpMode ? "Sign Up" : "Sign In";
-        }
-
-        function togglePasswordVisibility() {
-            const p = document.getElementById('password');
-            p.type = p.type === 'password' ? 'text' : 'password';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
         }
 
         function signOut() { auth.signOut(); }
-
         function deleteNote(id) { if(confirm("Delete?")) db.ref(`users/${currentUser.uid}/notes/${id}`).remove(); }
-
         function editNote(id) {
             db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
                 const n = snap.val();
@@ -216,7 +214,6 @@
                 window.scrollTo(0, 0);
             });
         }
-
         function resetUI() {
             currentEditingId = null;
             document.getElementById('noteTitle').value = '';
@@ -234,11 +231,11 @@
                         <div style="font-size:10px; color:#999">${note.lastEditedAt}</div>
                         <div class="action-buttons">
                             <button class="btn-small" onclick="showDetails('${note.id}')" title="Details">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="8" y1="12" x2="8.01" y2="12"></line>
-                                    <line x1="12" y1="12" x2="12.01" y2="12"></line>
-                                    <line x1="16" y1="12" x2="16.01" y2="12"></line>
+                                    <circle cx="8" cy="12" r="0.5" fill="currentColor"></circle>
+                                    <circle cx="12" cy="12" r="0.5" fill="currentColor"></circle>
+                                    <circle cx="16" cy="12" r="0.5" fill="currentColor"></circle>
                                 </svg>
                             </button>
                             <button class="btn-small" onclick="editNote('${note.id}')">Edit</button>
