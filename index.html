@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Cloud Notepad</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* --- CSS STYLES --- */
+        body { font-family: -apple-system, sans-serif; background-color: #f2f2f7; margin: 0; display: flex; justify-content: center; min-height: 100vh; }
+        .hidden { display: none !important; }
+        
+        /* Auth UI */
+        #authContainer { width: 300px; padding: 40px 20px; text-align: center; }
+        .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
+        
+        /* App UI */
+        #appContainer { width: 100%; max-width: 400px; padding: 20px; }
+        .input-group { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        textarea { width: 100%; height: 100px; border: none; outline: none; resize: none; font-size: 16px; margin-top: 10px; }
+        
+        button { 
+            width: 100%; padding: 12px; border-radius: 8px; border: none; 
+            font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary { background-color: #007aff; color: white; }
+        .btn-secondary { background: none; color: #007aff; margin-top: 10px; font-size: 13px; }
+        .btn-danger { background: none; color: #ff3b30; margin-top: 30px; font-size: 12px; border: 1px solid #ff3b30; width: auto; padding: 5px 15px; border-radius: 20px;}
+        .btn-danger:hover { background-color: #ff3b30; color: white; }
+        
+        /* Note List */
+        .note-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; position: relative; }
+        .action-buttons { position: absolute; right: 15px; top: 15px; }
+        .btn-small { background: none; border: none; font-size: 12px; cursor: pointer; color: #8e8e93; margin-left: 8px; }
+    </style>
+</head>
+<body>
+
+    <div id="authContainer">
+        <div class="auth-box">
+            <h2 id="authTitle">Sign In</h2>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button class="btn-primary" id="mainAuthBtn" onclick="handleAuth()">Sign In</button>
+            <button class="btn-secondary" id="toggleAuthBtn" onclick="toggleAuthMode()">New here? Create account</button>
+        </div>
+    </div>
+
+    <div id="appContainer" class="hidden">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <h1>📝 Notes</h1>
+            <button onclick="signOut()" style="width:auto; padding:5px 15px; font-size:12px; background:#ddd; color:#333;">Sign Out</button>
+        </div>
+        
+        <div class="input-group">
+            <input type="text" id="noteTitle" placeholder="Title..." style="border:none; width:100%; font-weight:bold; font-size:18px;">
+            <textarea id="noteContent" placeholder="Write something... (Shift+Enter to save)" onkeydown="handleKeyDown(event)"></textarea>
+            <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
+        </div>
+
+        <div id="notesList"></div>
+
+        <div style="text-align: center;">
+            <button class="btn-danger" onclick="deleteAccount()">Delete My Account</button>
+            <p style="font-size: 10px; color: #8e8e93; margin-top: 5px;">Warning: This action is irreversible.</p >
+        </div>
+    </div>
+
+    <script>
+        /* --- FIREBASE CONFIGURATION --- */
+        const firebaseConfig = {
+            apiKey: "AIzaSyBdWwwAQKf2WVABXqmOEyL2jVQeQXkvg1o",
+            authDomain: "web-notepad-1c001.firebaseapp.com",
+            databaseURL: "https://web-notepad-1c001-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "web-notepad-1c001",
+            storageBucket: "web-notepad-1c001.firebasestorage.app",
+            messagingSenderId: "592119278975",
+            appId: "1:592119278975:web:0dd2c5a3f46bb6b88efe4a"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let isSignUpMode = false;
+        let currentUser = null;
+        let currentEditingId = null;
+
+        /* --- AUTH OBSERVER --- */
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('authContainer').classList.add('hidden');
+                document.getElementById('appContainer').classList.remove('hidden');
+                startSync(user.uid);
+            } else {
+                currentUser = null;
+                document.getElementById('authContainer').classList.remove('hidden');
+                document.getElementById('appContainer').classList.add('hidden');
+            }
+        });
+
+        /* --- AUTH LOGIC --- */
+        function handleAuth() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+
+            if (isSignUpMode) {
+                auth.createUserWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+            } else {
+                auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+            }
+        }
+
+        /**
+         * Toggles between Login and Sign Up mode
+         * Automatically clears input fields for privacy and convenience
+         */
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            
+            // UI Updates
+            document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
+            document.getElementById('mainAuthBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
+            document.getElementById('toggleAuthBtn').innerText = isSignUpMode ? "Already have account? Login" : "New here? Create account";
+            
+            // Clear inputs
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function signOut() { auth.signOut(); }
+
+        /**
+         * Deletes user data from Database and then removes the Auth Account
+         */
+        function deleteAccount() {
+            if (!confirm("Are you absolutely sure? All your notes will be permanently deleted.")) return;
+
+            const user = firebase.auth().currentUser;
+            const uid = user.uid;
+
+            // 1. Delete all user notes from Database first
+            db.ref('users/' + uid).remove()
+                .then(() => {
+                    // 2. Delete the Auth account
+                    return user.delete();
+                })
+                .then(() => {
+                    alert("Account successfully deleted.");
+                })
+                .catch(error => {
+                    if (error.code === 'auth/requires-recent-login') {
+                        alert("For security reasons, please sign out and sign in again before deleting your account.");
+                        auth.signOut();
+                    } else {
+                        alert(error.message);
+                    }
+                });
+        }
+
+        /* --- DATABASE LOGIC --- */
+        function startSync(uid) {
+            // Listen to specific user's note path
+            db.ref('users/' + uid + '/notes').on('value', snapshot => {
+                renderNotes(snapshot.val());
+            });
+        }
+
+        function saveNote() {
+            if (!currentUser) return;
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+            if (!title && !content) return;
+
+            const id = currentEditingId || Date.now().toString();
+            const path = `users/${currentUser.uid}/notes/${id}`;
+
+            db.ref(path).set({
+                id: id,
+                title: title,
+                content: content,
+                date: new Date().toLocaleString() + (currentEditingId ? " (Edited)" : "")
+            }).then(() => resetUI());
+        }
+
+        function deleteNote(id) {
+            if (confirm("Delete this note?")) {
+                db.ref(`users/${currentUser.uid}/notes/${id}`).remove();
+            }
+        }
+
+        function editNote(id) {
+            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
+                const note = snap.val();
+                document.getElementById('noteTitle').value = note.title;
+                document.getElementById('noteContent').value = note.content;
+                currentEditingId = id;
+                document.getElementById('saveBtn').innerText = "Update Note";
+                window.scrollTo(0, 0);
+            });
+        }
+
+        /* --- UI HELPERS --- */
+        function handleKeyDown(e) { 
+            if (e.key === 'Enter' && e.shiftKey) { 
+                e.preventDefault(); 
+                saveNote(); 
+            } 
+        }
+        
+        function resetUI() {
+            currentEditingId = null;
+            document.getElementById('noteTitle').value = '';
+            document.getElementById('noteContent').value = '';
+            document.getElementById('saveBtn').innerText = "Save Note";
+        }
+
+        function renderNotes(data) {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '';
+            if (!data) return;
+            
+            Object.values(data).reverse().forEach(note => {
+                list.innerHTML += `
+                    <div class="note-card">
+                        <div style="font-size:10px; color:#999">${note.date}</div>
+                        <div class="action-buttons">
+                            <button class="btn-small" onclick="editNote('${note.id}')">Edit</button>
+                            <button class="btn-small" onclick="deleteNote('${note.id}')" style="color:#ff3b30">Delete</button>
+                        </div>
+                        <h3 style="margin: 10px 0 5px 0;">${note.title}</h3>
+                        <p style="white-space: pre-wrap; color:#333; margin:0;">${note.content}</p >
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
