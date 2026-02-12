@@ -17,24 +17,9 @@
         /* Auth UI */
         #authContainer { width: 100%; max-width: 340px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
-        input { 
-            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; 
-            transition: border-color 0.3s;
-            background-color: white !important;
-        }
-        
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; background-color: white !important; }
         input::placeholder { color: #c7c7cc !important; -webkit-text-fill-color: #c7c7cc !important; opacity: 1; }
-
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px white inset !important;
-            -webkit-text-fill-color: #000 !important;
-            transition: background-color 5000s ease-in-out 0s;
-        }
-
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px white inset !important; -webkit-text-fill-color: #000 !important; }
         .password-wrapper { position: relative; width: 100%; margin-bottom: 15px; }
         #password { margin-bottom: 0; padding-right: 45px; }
         .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
@@ -45,42 +30,20 @@
         .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
         .toolbar button, .toolbar select { background: white; border: 1px solid #ddd; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
         
-        /* 核心 CSS 修复：
-           --placeholder-size: 仅控制提示词大小，不影响正文。
-           font-size: 给一个默认值，但不要频繁用 JS 修改它（除非是空框）。
-        */
         #editor { 
-            --placeholder-size: 16px; /* 默认 M 号 */
-            min-height: 200px; 
-            max-height: 400px; 
-            padding: 15px; 
-            outline: none; 
-            overflow-y: auto; 
-            font-size: 16px; 
-            line-height: 1.5; 
-            background: #fff; 
-            width: 100%; 
-            word-wrap: break-word;
+            --placeholder-size: 16px;
+            min-height: 200px; max-height: 400px; padding: 15px; outline: none; overflow-y: auto; 
+            font-size: 16px; line-height: 1.5; background: #fff; width: 100%; word-wrap: break-word;
         }
 
-        /* 提示词专门引用变量，保证它能独立缩放 */
         #editor:empty:before { 
-            content: attr(placeholder); 
-            color: #999; 
-            font-size: var(--placeholder-size); 
-            pointer-events: none; /* 防止鼠标点到提示词上产生怪异行为 */
-            display: inline-block;
+            content: attr(placeholder); color: #999; 
+            font-size: var(--placeholder-size); pointer-events: none; display: inline-block;
         }
 
         .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; transition: background 0.2s; }
         .btn-primary:active { background-color: #005bb5; }
-
         .note-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; position: relative; border: 1px solid #efeff4; width: 100%; word-wrap: break-word; }
-        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }
-        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; padding: 0; }
-        
-        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .modal-box { background: white; width: 90%; max-width: 320px; padding: 25px; border-radius: 20px; }
     </style>
 </head>
 <body>
@@ -88,11 +51,11 @@
     <div id="authContainer">
         <div class="auth-box">
             <h2 id="authTitle" style="margin-top:0">Sign In</h2>
-            <input type="email" id="email" placeholder="Email" autocomplete="username">
+            <input type="email" id="email" placeholder="Email">
             <div class="password-wrapper">
-                <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+                <input type="password" id="password" placeholder="Password">
                 <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
-                    <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </button>
             </div>
             <button class="btn-primary" id="mainAuthBtn" onclick="handleAuth()">Sign In</button>
@@ -108,12 +71,9 @@
         <div class="editor-container">
             <div class="toolbar">
                 <select id="fontSizeSelect" onchange="applyFontSize(this.value)">
-                    <option value="1">XS</option>
-                    <option value="2">S</option>
-                    <option value="3" selected>M</option>
-                    <option value="4">L</option>
-                    <option value="5">XL</option>
-                    <option value="6">XXL</option>
+                    <option value="1">XS</option><option value="2">S</option>
+                    <option value="3" selected>M</option><option value="4">L</option>
+                    <option value="5">XL</option><option value="6">XXL</option>
                     <option value="7">MAX</option>
                 </select>
                 <button onclick="applyFormat('bold')"><b>B</b></button>
@@ -121,16 +81,16 @@
                 <button onclick="applyFormat('underline')"><u>U</u></button>
                 <button onclick="applyFormat('removeFormat')">✖</button>
             </div>
-            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="checkCursorState()" onkeyup="checkCursorState()"></div>
+            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncUI()" onkeyup="syncUI()" onclick="syncUI()"></div>
         </div>
         <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
         <div id="notesList" style="margin-top: 20px;"></div>
-        <div style="text-align: center; margin-top: 40px;">
-            <button style="background:none; color:#ff3b30; border: 1px solid #ff3b30; padding:5px 15px; border-radius:20px; font-size:12px; cursor:pointer;" onclick="deleteAccount()">Delete Account</button>
-        </div>
     </div>
 
     <script>
+        // ==========================================
+        // 这里就是填入 Firebase 信息的地方
+        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyBdWwwAQKf2WVABXqmOEyL2jVQeQXkvg1o",
             authDomain: "web-notepad-1c001.firebaseapp.com",
@@ -140,26 +100,77 @@
             messagingSenderId: "592119278975",
             appId: "1:592119278975:web:0dd2c5a3f46bb6b88efe4a"
         };
+        // ==========================================
 
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
-
         let currentUser = null;
         let isSignUpMode = false;
         
-        // 浏览器标准字号映射 (用于 Placeholder 和空框模拟)
-        const sizeMap = { 
-            "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" 
-        };
+        const sizeMap = { "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" };
+        const revSizeMap = { "10px":"1", "13px":"2", "16px":"3", "18px":"4", "24px":"5", "32px":"6", "48px":"7" };
+
+        function applyFontSize(size) {
+            const editor = document.getElementById('editor');
+            editor.focus();
+            editor.style.setProperty('--placeholder-size', sizeMap[size]);
+
+            if (editor.innerText.trim() === "") {
+                editor.style.fontSize = sizeMap[size];
+            } else {
+                editor.style.fontSize = "";
+            }
+
+            const span = document.createElement('span');
+            span.style.fontSize = sizeMap[size];
+            span.innerHTML = '&#8203;'; 
+            
+            const sel = window.getSelection();
+            if (sel.getRangeAt && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(span);
+                range.setStartAfter(span);
+                range.setEndAfter(span);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            document.execCommand('fontSize', false, size);
+        }
+
+        function syncUI() {
+            const editor = document.getElementById('editor');
+            const select = document.getElementById('fontSizeSelect');
+            const sel = window.getSelection();
+
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                let node = range.startContainer;
+                if (node.nodeType === 3) node = node.parentNode;
+                const computedSize = window.getComputedStyle(node).fontSize;
+                
+                let closestVal = "3";
+                let minDiff = Infinity;
+                for (let px in revSizeMap) {
+                    const diff = Math.abs(parseFloat(px) - parseFloat(computedSize));
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestVal = revSizeMap[px];
+                    }
+                }
+                select.value = closestVal;
+                editor.style.setProperty('--placeholder-size', sizeMap[closestVal]);
+                if (editor.innerText.trim() === "") {
+                    editor.style.fontSize = sizeMap[closestVal];
+                }
+            }
+        }
 
         auth.onAuthStateChanged(user => {
             const authBtn = document.getElementById('mainAuthBtn');
             if (user) {
                 currentUser = user;
-                document.getElementById('email').value = '';
-                document.getElementById('password').value = '';
-                authBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
                 document.getElementById('authContainer').classList.add('hidden');
                 document.getElementById('appContainer').classList.remove('hidden');
                 db.ref(`users/${user.uid}/notes`).on('value', snap => renderNotes(snap.val()));
@@ -171,133 +182,42 @@
             }
         });
 
-        // --- 核心修复：申请字号 ---
-        function applyFontSize(size) {
-            const editor = document.getElementById('editor');
-            
-            // 1. 先把焦点强行拉回编辑器，否则 execCommand 可能失效或作用错误
-            editor.focus();
-
-            // 2. 无论是否有内容，都更新 Placeholder 的视觉大小（仅视觉）
-            editor.style.setProperty('--placeholder-size', sizeMap[size]);
-
-            // 3. 关键分支判断：
-            if (editor.innerText.trim() === "") {
-                // [空状态]：直接改容器 Font Size，让光标瞬间变大
-                // 因为没有文字，不用担心行高乱跳
-                editor.style.fontSize = sizeMap[size];
-                // 同时也要执行 execCommand，为即将输入的第一个字做好准备
-                document.execCommand('fontSize', false, size);
-            } else {
-                // [非空状态]：严禁修改容器 Font Size！否则光标会乱跳。
-                // 我们把容器重置为默认，完全依赖 execCommand 在光标处插入 <font> 标签
-                // 这保证了光标紧贴在文字后面，而不是飞到下一行
-                if(editor.style.fontSize !== "") {
-                    editor.style.fontSize = ""; // 移除内联样式，恢复 CSS 默认
-                }
-                document.execCommand('fontSize', false, size);
-            }
-        }
-
-        // --- 核心修复：反向检测 ---
-        // 当用户点击文本某处时，我们需要把工具栏同步成当前位置的字号
-        function checkCursorState() {
-            const editor = document.getElementById('editor');
-            const select = document.getElementById('fontSizeSelect');
-            
-            // 获取当前光标位置的字号 (浏览器返回 '1'-'7' 或 'x-small' 等)
-            // queryCommandValue 是浏览器原生方法，比手动解析准确
-            let currentSize = document.queryCommandValue('fontSize');
-            
-            // 如果在空框里，可能获取不到，或者获取到默认值
-            if (editor.innerText.trim() === "") {
-                // 保持 Select 选中的值不变
-            } else {
-                // 如果能获取到有效值 (1-7)，同步给下拉菜单
-                if (currentSize && sizeMap[currentSize]) {
-                    select.value = currentSize;
-                    // 同时更新 Placeholder 变量，确保如果用户删光文字，Placeholder 是对的大小
-                    editor.style.setProperty('--placeholder-size', sizeMap[currentSize]);
-                }
-            }
-        }
-
-        function applyFormat(cmd) {
-            document.execCommand(cmd, false, null);
-            document.getElementById('editor').focus();
-        }
-
+        function applyFormat(cmd) { document.execCommand(cmd, false, null); document.getElementById('editor').focus(); }
         function handleAuth() {
             const e = document.getElementById('email').value;
             const p = document.getElementById('password').value;
             if(!e || !p) return;
             const btn = document.getElementById('mainAuthBtn');
             btn.innerText = "Processing...";
-            if (isSignUpMode) {
-                auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; });
-            } else {
-                auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; });
-            }
+            if (isSignUpMode) { auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; }); }
+            else { auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; }); }
         }
-
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
             document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
             document.getElementById('mainAuthBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
             document.getElementById('toggleAuthBtn').innerText = isSignUpMode ? "Already have an account? Login" : "New here? Create account";
-            document.getElementById('email').value = '';
-            document.getElementById('password').value = '';
         }
-
         function saveNote() {
             const editor = document.getElementById('editor');
             const html = editor.innerHTML.trim();
             if (editor.innerText.trim() === "" && html === "") return;
-            const now = new Date().toLocaleString();
-            const id = Date.now().toString();
-            db.ref(`users/${currentUser.uid}/notes/${id}`).set({ id, content: html, lastEditedAt: now });
-            resetUI();
-        }
-
-        function resetUI() {
-            const editor = document.getElementById('editor');
+            db.ref(`users/${currentUser.uid}/notes/${Date.now()}`).set({ id: Date.now(), content: html, lastEditedAt: new Date().toLocaleString() });
             editor.innerHTML = '';
-            document.getElementById('saveBtn').innerText = "Save Note";
-            
-            // 重置 UI
-            document.getElementById('fontSizeSelect').value = "3";
-            editor.style.setProperty('--placeholder-size', '16px');
-            editor.style.fontSize = '16px'; 
+            syncUI(); 
         }
-
         function renderNotes(data) {
             const list = document.getElementById('notesList');
-            list.innerHTML = '';
-            if (!data) return;
+            list.innerHTML = ''; if (!data) return;
             Object.values(data).reverse().forEach(note => {
-                list.innerHTML += `
-                    <div class="note-card">
-                        <div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div>
-                        <div style="font-size:14px;">${note.content}</div>
-                    </div>`;
+                list.innerHTML += `<div class="note-card"><div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div><div style="font-size:14px;">${note.content}</div></div>`;
             });
         }
-
         function signOut() { auth.signOut(); }
-        function deleteAccount() {
-            if (!confirm("Delete everything?")) return;
-            const user = firebase.auth().currentUser;
-            db.ref('users/' + user.uid).remove().then(() => user.delete());
+        function togglePasswordVisibility() {
+            const p = document.getElementById('password');
+            p.type = p.type === 'password' ? 'text' : 'password';
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const pInput = document.getElementById('password');
-            pInput.addEventListener('change', () => {
-                if (!isSignUpMode && document.getElementById('email').value && pInput.value) {
-                    handleAuth();
-                }
-            });
-        });
     </script>
 </body>
 </html>
