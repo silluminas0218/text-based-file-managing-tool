@@ -17,9 +17,24 @@
         /* --- Auth UI --- */
         #authContainer { width: 100%; max-width: 340px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; transition: border-color 0.3s; background-color: white !important; }
+        
+        input { 
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; 
+            transition: border-color 0.3s;
+            background-color: white !important;
+        }
+        
         input::placeholder { color: #c7c7cc !important; -webkit-text-fill-color: #c7c7cc !important; opacity: 1; }
-        input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 1000px white inset !important; -webkit-text-fill-color: #000 !important; transition: background-color 5000s ease-in-out 0s; }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px white inset !important;
+            -webkit-text-fill-color: #000 !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
         .password-wrapper { position: relative; width: 100%; margin-bottom: 15px; }
         #password { margin-bottom: 0; padding-right: 45px; }
         .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
@@ -30,25 +45,40 @@
         .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
         .toolbar button, .toolbar select { background: white; border: 1px solid #ddd; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
         
+        /* 核心优化 CSS：
+           1. 定义 --dynamic-size 变量，初始值为 16px (M号)
+           2. 让编辑器基准字体和 placeholder 字体都通过这个变量控制
+        */
         #editor { 
-            min-height: 200px; max-height: 400px; padding: 15px; outline: none; overflow-y: auto; 
-            font-size: 16px; /* 默认基准字号 */
-            line-height: 1.5; background: #fff; width: 100%; word-wrap: break-word; 
+            --dynamic-size: 16px; /* 默认 M 号 */
+            min-height: 200px; 
+            max-height: 400px; 
+            padding: 15px; 
+            outline: none; 
+            overflow-y: auto; 
+            font-size: 16px; /* 这里的固定值只作为回退 */
+            line-height: 1.5; 
+            background: #fff; 
+            width: 100%; 
+            word-wrap: break-word;
         }
 
-        /* 优化：Placeholder 字号现在会继承容器的 fontSize */
+        /* 关键修改：Placeholder 现在引用变量，并且会有平滑过渡 */
         #editor:empty:before { 
             content: attr(placeholder); 
             color: #999; 
-            font-size: inherit; 
-            display: block;
+            font-size: var(--dynamic-size); 
+            transition: font-size 0.1s ease-out;
+            display: inline-block; /* 确保高度计算正确 */
         }
 
         .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; transition: background 0.2s; }
         .btn-primary:active { background-color: #005bb5; }
+
         .note-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; position: relative; border: 1px solid #efeff4; width: 100%; word-wrap: break-word; }
         .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }
         .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; padding: 0; }
+        
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: white; width: 90%; max-width: 320px; padding: 25px; border-radius: 20px; }
     </style>
@@ -91,7 +121,7 @@
                 <button onclick="applyFormat('underline')"><u>U</u></button>
                 <button onclick="applyFormat('removeFormat')">✖</button>
             </div>
-            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncCaretSize()" onkeyup="syncCaretSize()" oninput="syncCaretSize()"></div>
+            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncToolbarToCaret()" onkeyup="syncToolbarToCaret()"></div>
         </div>
         <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
         <div id="notesList" style="margin-top: 20px;"></div>
@@ -117,9 +147,11 @@
 
         let currentUser = null;
         let isSignUpMode = false;
-
-        // 字号级别到像素的精准映射（对应浏览器原生 fontSize 1-7）
-        const sizeMap = { "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" };
+        
+        // 映射表：将字号等级 (1-7) 映射到具体的像素值，用于精确控制 UI
+        const sizeMap = { 
+            "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" 
+        };
 
         auth.onAuthStateChanged(user => {
             const authBtn = document.getElementById('mainAuthBtn');
@@ -139,39 +171,62 @@
             }
         });
 
-        // 核心修复：应用字号
+        // --- 核心修改：应用字体大小 & 同步 Placeholder ---
         function applyFontSize(size) {
             const editor = document.getElementById('editor');
             editor.focus();
             
-            // 1. 改变容器的基准字号 -> 这会立即改变“空光标”高度和 Placeholder 大小
-            editor.style.fontSize = sizeMap[size];
-            
-            // 2. 执行原生命令 -> 确保接下来的输入带有正确的字号标签
+            // 1. 获取对应的像素值
+            const pxValue = sizeMap[size];
+
+            // 2. 关键：设置 CSS 变量
+            // 这会立即改变 Placeholder 的大小，以及文本框的基础字号
+            editor.style.setProperty('--dynamic-size', pxValue);
+
+            // 3. 执行浏览器的原生字号命令（用于包裹文本）
             document.execCommand('fontSize', false, size);
+            
+            // 4. 双重保险：如果此时编辑器为空，或者为了强制刷新光标高度
+            // 我们直接修改 style.fontSize。这确保了即便没有字符，光标高度也是正确的。
+            // 当用户开始打字时，execCommand 生效的 font 标签会接管样式。
+            editor.style.fontSize = pxValue; 
         }
 
-        // 核心修复：光标同步逻辑
-        function syncCaretSize() {
+        // --- 核心修改：反向同步（光标移动 -> 更新工具栏和变量）---
+        function syncToolbarToCaret() {
+            // 这个功能暂时只做简单的保持，为了不跟 applyFontSize 冲突，
+            // 我们主要目的是确保在用户点击不同位置时，Placeholder 变量不会乱。
+            
+            // 注意：虽然 contenteditable 很难完美获取当前光标处的字号值 (1-7)
+            // 但我们可以依靠用户的最后一次选择，或者让 Placeholder 保持最后设定的值。
+            
+            // 如果编辑器变空了，我们确保它使用当前下拉菜单的值来渲染光标
             const editor = document.getElementById('editor');
-            const select = document.getElementById('fontSizeSelect');
-            
-            // 获取光标当前所在位置的计算字号等级 (1-7)
-            const currentSize = document.queryCommandValue('fontSize');
-            
-            if (currentSize && sizeMap[currentSize]) {
-                // 如果光标移动到了不同大小的文字上，更新下拉菜单
-                select.value = currentSize;
-                // 同时更新容器基准字号，确保光标视觉高度同步
-                editor.style.fontSize = sizeMap[currentSize];
-            } else if (editor.innerText.trim() === "") {
-                // 如果是空的，维持下拉菜单选中的字号
-                editor.style.fontSize = sizeMap[select.value];
+            if (editor.innerText.trim() === "") {
+                const currentVal = document.getElementById('fontSizeSelect').value;
+                editor.style.setProperty('--dynamic-size', sizeMap[currentVal]);
+                editor.style.fontSize = sizeMap[currentVal];
             }
         }
 
-        function applyFormat(cmd) { document.execCommand(cmd, false, null); document.getElementById('editor').focus(); }
-        function signOut() { auth.signOut(); }
+        function applyFormat(cmd) {
+            document.execCommand(cmd, false, null);
+            document.getElementById('editor').focus();
+        }
+
+        function handleAuth() {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            if(!e || !p) return;
+            const btn = document.getElementById('mainAuthBtn');
+            btn.innerText = "Processing...";
+            if (isSignUpMode) {
+                auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; });
+            } else {
+                auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; });
+            }
+        }
+
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
             document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
@@ -180,6 +235,7 @@
             document.getElementById('email').value = '';
             document.getElementById('password').value = '';
         }
+
         function saveNote() {
             const editor = document.getElementById('editor');
             const html = editor.innerHTML.trim();
@@ -189,28 +245,45 @@
             db.ref(`users/${currentUser.uid}/notes/${id}`).set({ id, content: html, lastEditedAt: now });
             resetUI();
         }
+
         function resetUI() {
             const editor = document.getElementById('editor');
             editor.innerHTML = '';
+            document.getElementById('saveBtn').innerText = "Save Note";
+            
+            // 重置为默认 M 号 (3)
             document.getElementById('fontSizeSelect').value = "3";
-            editor.style.fontSize = "16px";
+            editor.style.setProperty('--dynamic-size', '16px');
+            editor.style.fontSize = '16px';
         }
+
         function renderNotes(data) {
             const list = document.getElementById('notesList');
             list.innerHTML = '';
             if (!data) return;
             Object.values(data).reverse().forEach(note => {
-                list.innerHTML += `<div class="note-card"><div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div><div style="font-size:14px;">${note.content}</div></div>`;
+                list.innerHTML += `
+                    <div class="note-card">
+                        <div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div>
+                        <div style="font-size:14px;">${note.content}</div>
+                    </div>`;
             });
         }
-        function handleAuth() {
-            const e = document.getElementById('email').value; const p = document.getElementById('password').value; if(!e || !p) return;
-            const btn = document.getElementById('mainAuthBtn'); btn.innerText = "Processing...";
-            isSignUpMode ? auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; }) : auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; });
+
+        function signOut() { auth.signOut(); }
+        function deleteAccount() {
+            if (!confirm("Delete everything?")) return;
+            const user = firebase.auth().currentUser;
+            db.ref('users/' + user.uid).remove().then(() => user.delete());
         }
+
         document.addEventListener('DOMContentLoaded', () => {
             const pInput = document.getElementById('password');
-            pInput.addEventListener('change', () => { if (!isSignUpMode && document.getElementById('email').value && pInput.value) handleAuth(); });
+            pInput.addEventListener('change', () => {
+                if (!isSignUpMode && document.getElementById('email').value && pInput.value) {
+                    handleAuth();
+                }
+            });
         });
     </script>
 </body>
