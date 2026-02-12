@@ -14,7 +14,7 @@
         body { font-family: -apple-system, sans-serif; background-color: #f2f2f7; margin: 0; display: flex; justify-content: center; min-height: 100vh; overflow-x: hidden; }
         .hidden { display: none !important; }
         
-        /* --- Auth UI --- */
+        /* Auth UI */
         #authContainer { width: 100%; max-width: 340px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         
@@ -39,37 +39,37 @@
         #password { margin-bottom: 0; padding-right: 45px; }
         .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
 
-        /* --- App UI --- */
+        /* App UI */
         #appContainer { width: 100%; max-width: 500px; padding: 15px; }
         .editor-container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px; border: 1px solid #e5e5ea; width: 100%; }
         .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
         .toolbar button, .toolbar select { background: white; border: 1px solid #ddd; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
         
-        /* 核心优化 CSS：
-           1. 定义 --dynamic-size 变量，初始值为 16px (M号)
-           2. 让编辑器基准字体和 placeholder 字体都通过这个变量控制
+        /* 核心 CSS 修复：
+           --placeholder-size: 仅控制提示词大小，不影响正文。
+           font-size: 给一个默认值，但不要频繁用 JS 修改它（除非是空框）。
         */
         #editor { 
-            --dynamic-size: 16px; /* 默认 M 号 */
+            --placeholder-size: 16px; /* 默认 M 号 */
             min-height: 200px; 
             max-height: 400px; 
             padding: 15px; 
             outline: none; 
             overflow-y: auto; 
-            font-size: 16px; /* 这里的固定值只作为回退 */
+            font-size: 16px; 
             line-height: 1.5; 
             background: #fff; 
             width: 100%; 
             word-wrap: break-word;
         }
 
-        /* 关键修改：Placeholder 现在引用变量，并且会有平滑过渡 */
+        /* 提示词专门引用变量，保证它能独立缩放 */
         #editor:empty:before { 
             content: attr(placeholder); 
             color: #999; 
-            font-size: var(--dynamic-size); 
-            transition: font-size 0.1s ease-out;
-            display: inline-block; /* 确保高度计算正确 */
+            font-size: var(--placeholder-size); 
+            pointer-events: none; /* 防止鼠标点到提示词上产生怪异行为 */
+            display: inline-block;
         }
 
         .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; transition: background 0.2s; }
@@ -121,7 +121,7 @@
                 <button onclick="applyFormat('underline')"><u>U</u></button>
                 <button onclick="applyFormat('removeFormat')">✖</button>
             </div>
-            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncToolbarToCaret()" onkeyup="syncToolbarToCaret()"></div>
+            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="checkCursorState()" onkeyup="checkCursorState()"></div>
         </div>
         <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
         <div id="notesList" style="margin-top: 20px;"></div>
@@ -148,7 +148,7 @@
         let currentUser = null;
         let isSignUpMode = false;
         
-        // 映射表：将字号等级 (1-7) 映射到具体的像素值，用于精确控制 UI
+        // 浏览器标准字号映射 (用于 Placeholder 和空框模拟)
         const sizeMap = { 
             "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" 
         };
@@ -171,41 +171,54 @@
             }
         });
 
-        // --- 核心修改：应用字体大小 & 同步 Placeholder ---
+        // --- 核心修复：申请字号 ---
         function applyFontSize(size) {
             const editor = document.getElementById('editor');
+            
+            // 1. 先把焦点强行拉回编辑器，否则 execCommand 可能失效或作用错误
             editor.focus();
-            
-            // 1. 获取对应的像素值
-            const pxValue = sizeMap[size];
 
-            // 2. 关键：设置 CSS 变量
-            // 这会立即改变 Placeholder 的大小，以及文本框的基础字号
-            editor.style.setProperty('--dynamic-size', pxValue);
+            // 2. 无论是否有内容，都更新 Placeholder 的视觉大小（仅视觉）
+            editor.style.setProperty('--placeholder-size', sizeMap[size]);
 
-            // 3. 执行浏览器的原生字号命令（用于包裹文本）
-            document.execCommand('fontSize', false, size);
-            
-            // 4. 双重保险：如果此时编辑器为空，或者为了强制刷新光标高度
-            // 我们直接修改 style.fontSize。这确保了即便没有字符，光标高度也是正确的。
-            // 当用户开始打字时，execCommand 生效的 font 标签会接管样式。
-            editor.style.fontSize = pxValue; 
+            // 3. 关键分支判断：
+            if (editor.innerText.trim() === "") {
+                // [空状态]：直接改容器 Font Size，让光标瞬间变大
+                // 因为没有文字，不用担心行高乱跳
+                editor.style.fontSize = sizeMap[size];
+                // 同时也要执行 execCommand，为即将输入的第一个字做好准备
+                document.execCommand('fontSize', false, size);
+            } else {
+                // [非空状态]：严禁修改容器 Font Size！否则光标会乱跳。
+                // 我们把容器重置为默认，完全依赖 execCommand 在光标处插入 <font> 标签
+                // 这保证了光标紧贴在文字后面，而不是飞到下一行
+                if(editor.style.fontSize !== "") {
+                    editor.style.fontSize = ""; // 移除内联样式，恢复 CSS 默认
+                }
+                document.execCommand('fontSize', false, size);
+            }
         }
 
-        // --- 核心修改：反向同步（光标移动 -> 更新工具栏和变量）---
-        function syncToolbarToCaret() {
-            // 这个功能暂时只做简单的保持，为了不跟 applyFontSize 冲突，
-            // 我们主要目的是确保在用户点击不同位置时，Placeholder 变量不会乱。
-            
-            // 注意：虽然 contenteditable 很难完美获取当前光标处的字号值 (1-7)
-            // 但我们可以依靠用户的最后一次选择，或者让 Placeholder 保持最后设定的值。
-            
-            // 如果编辑器变空了，我们确保它使用当前下拉菜单的值来渲染光标
+        // --- 核心修复：反向检测 ---
+        // 当用户点击文本某处时，我们需要把工具栏同步成当前位置的字号
+        function checkCursorState() {
             const editor = document.getElementById('editor');
+            const select = document.getElementById('fontSizeSelect');
+            
+            // 获取当前光标位置的字号 (浏览器返回 '1'-'7' 或 'x-small' 等)
+            // queryCommandValue 是浏览器原生方法，比手动解析准确
+            let currentSize = document.queryCommandValue('fontSize');
+            
+            // 如果在空框里，可能获取不到，或者获取到默认值
             if (editor.innerText.trim() === "") {
-                const currentVal = document.getElementById('fontSizeSelect').value;
-                editor.style.setProperty('--dynamic-size', sizeMap[currentVal]);
-                editor.style.fontSize = sizeMap[currentVal];
+                // 保持 Select 选中的值不变
+            } else {
+                // 如果能获取到有效值 (1-7)，同步给下拉菜单
+                if (currentSize && sizeMap[currentSize]) {
+                    select.value = currentSize;
+                    // 同时更新 Placeholder 变量，确保如果用户删光文字，Placeholder 是对的大小
+                    editor.style.setProperty('--placeholder-size', sizeMap[currentSize]);
+                }
             }
         }
 
@@ -251,10 +264,10 @@
             editor.innerHTML = '';
             document.getElementById('saveBtn').innerText = "Save Note";
             
-            // 重置为默认 M 号 (3)
+            // 重置 UI
             document.getElementById('fontSizeSelect').value = "3";
-            editor.style.setProperty('--dynamic-size', '16px');
-            editor.style.fontSize = '16px';
+            editor.style.setProperty('--placeholder-size', '16px');
+            editor.style.fontSize = '16px'; 
         }
 
         function renderNotes(data) {
