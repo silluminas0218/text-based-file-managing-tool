@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Cloud Notepad</title>
+    <title>Rich Text Cloud Notepad</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -16,38 +16,37 @@
         /* Auth UI */
         #authContainer { width: 300px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
-        /* 1. FIX: Password Wrapper & Input Padding */
         .password-wrapper { position: relative; width: 100%; margin-bottom: 10px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 14px; }
-        #password { padding-right: 45px; } /* 为右侧眼睛留出空间 */
-        
-        /* 2. FIX: Specific width for toggle button */
-        .toggle-password {
-            position: absolute; right: 0; top: 0; 
-            height: 100%; width: 40px !important; /* 限制点击区域仅在右侧40px */
-            background: none !important; border: none; cursor: pointer; 
-            color: #8e8e93; display: flex; align-items: center; justify-content: center;
-            padding: 0; margin: 0; z-index: 2;
-        }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
+        #password { padding-right: 45px; }
+        .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
 
         /* App UI */
-        #appContainer { width: 100%; max-width: 400px; padding: 20px; }
-        .input-group { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        textarea { width: 100%; height: 100px; border: none; outline: none; resize: none; font-size: 16px; margin-top: 10px; }
+        #appContainer { width: 100%; max-width: 500px; padding: 20px; }
         
-        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-primary { background-color: #007aff; color: white; }
+        /* 富文本编辑器样式 */
+        .editor-container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px; }
         
-        .note-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; position: relative; }
-        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; align-items: center; gap: 8px; }
-        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; padding: 0; display: flex; align-items: center; width: auto; }
+        /* 工具栏 */
+        .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+        .toolbar button, .toolbar select { background: white; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 14px; width: auto; }
+        .toolbar button:hover { background: #eee; }
+        .toolbar button.active { background: #007aff; color: white; border-color: #007aff; }
 
-        /* Modal Styles */
+        /* 输入区域 */
+        #editor { min-height: 150px; max-height: 400px; padding: 15px; outline: none; overflow-y: auto; font-size: 16px; line-height: 1.5; }
+        #editor:empty:before { content: attr(placeholder); color: #999; }
+
+        .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; }
+        
+        /* 笔记列表项 */
+        .note-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; position: relative; }
+        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 8px; }
+        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; display: flex; align-items: center; }
+
+        /* 模态框 */
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: white; width: 85%; max-width: 320px; padding: 20px; border-radius: 16px; }
-        .detail-item { font-size: 13px; margin: 10px 0; display: flex; justify-content: space-between; }
-        .detail-label { color: #8e8e93; }
     </style>
 </head>
 <body>
@@ -59,10 +58,7 @@
             <div class="password-wrapper">
                 <input type="password" id="password" placeholder="Password">
                 <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
-                    <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
+                    <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </button>
             </div>
             <button class="btn-primary" id="mainAuthBtn" onclick="handleAuth()">Sign In</button>
@@ -72,15 +68,29 @@
 
     <div id="appContainer" class="hidden">
         <div style="display:flex; justify-content: space-between; align-items:center;">
-            <h1>📝 Notes</h1>
-            <button onclick="signOut()" style="width:auto; padding:5px 10px; font-size:12px">Sign Out</button>
+            <h1>📝 Free Note</h1>
+            <button onclick="signOut()" style="width:auto; padding:5px 10px; font-size:12px; border-radius: 5px;">Sign Out</button>
         </div>
-        <div class="input-group">
-            <input type="text" id="noteTitle" placeholder="Title..." style="border:none; width:100%; font-weight:bold; font-size:18px;">
-            <textarea id="noteContent" placeholder="Content..."></textarea>
-            <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
+
+        <div class="editor-container">
+            <div class="toolbar">
+                <select onchange="execCommand('fontSize', this.value)">
+                    <option value="3">Size: Normal</option>
+                    <option value="1">Small</option>
+                    <option value="4">Medium</option>
+                    <option value="5">Large</option>
+                    <option value="7">Extra Large</option>
+                </select>
+                <button onclick="execCommand('bold')" title="Bold"><b>B</b></button>
+                <button onclick="execCommand('italic')" title="Italic"><i>I</i></button>
+                <button onclick="execCommand('underline')" title="Underline"><u>U</u></button>
+                <button onclick="execCommand('removeFormat')" title="Clear">✖</button>
+            </div>
+            <div id="editor" contenteditable="true" placeholder="Write anything... support multi-line and rich text."></div>
         </div>
-        <div id="notesList"></div>
+        
+        <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
+        <div id="notesList" style="margin-top: 20px;"></div>
     </div>
 
     <div id="detailsModal" class="modal-overlay hidden">
@@ -124,6 +134,113 @@
             }
         });
 
+        /* --- 富文本核心功能 --- */
+        function execCommand(command, value = null) {
+            document.execCommand(command, false, value);
+            document.getElementById('editor').focus();
+        }
+
+        /* --- 保存笔记 (存储 HTML) --- */
+        function saveNote() {
+            const editor = document.getElementById('editor');
+            const htmlContent = editor.innerHTML.trim();
+            const textContent = editor.innerText.trim(); // 用于判断是否为空
+
+            if (!textContent && !htmlContent) return;
+
+            const now = new Date().toLocaleString();
+            const device = getDeviceType();
+
+            if (currentEditingId) {
+                db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
+                    content: htmlContent,
+                    lastEditedAt: now,
+                    lastDevice: device
+                }).then(() => resetUI());
+            } else {
+                const id = Date.now().toString();
+                db.ref(`users/${currentUser.uid}/notes/${id}`).set({
+                    id: id,
+                    content: htmlContent,
+                    createdAt: now,
+                    lastEditedAt: now,
+                    lastDevice: device
+                }).then(() => resetUI());
+            }
+        }
+
+        /* --- 详情展示 (计算纯文字字数) --- */
+        function showDetails(id) {
+            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
+                const n = snap.val();
+                const tempDiv = document.createElement("div");
+                tempDiv.innerHTML = n.content;
+                const pureText = tempDiv.innerText; // 过滤掉 HTML 标签计算字数
+                
+                const charCount = pureText.length;
+                const fileSize = new Blob([n.content]).size;
+
+                const html = `
+                    <div style="font-size:13px; margin:10px 0; display:flex; justify-content:space-between;">
+                        <span style="color:#888">Characters:</span> <span>${charCount}</span>
+                    </div>
+                    <div style="font-size:13px; margin:10px 0; display:flex; justify-content:space-between;">
+                        <span style="color:#888">Size:</span> <span>${fileSize} Bytes</span>
+                    </div>
+                    <div style="font-size:13px; margin:10px 0; display:flex; justify-content:space-between;">
+                        <span style="color:#888">Created:</span> <span>${n.createdAt || 'N/A'}</span>
+                    </div>
+                    <div style="font-size:13px; margin:10px 0; display:flex; justify-content:space-between;">
+                        <span style="color:#888">Last Edit:</span> <span>${n.lastEditedAt}</span>
+                    </div>
+                    <div style="font-size:13px; margin:10px 0; display:flex; justify-content:space-between;">
+                        <span style="color:#888">Device:</span> <span>${n.lastDevice}</span>
+                    </div>
+                `;
+                document.getElementById('detailsContent').innerHTML = html;
+                document.getElementById('detailsModal').classList.remove('hidden');
+            });
+        }
+
+        /* --- UI & 渲染逻辑 --- */
+        function renderNotes(data) {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '';
+            if (!data) return;
+            Object.values(data).reverse().forEach(note => {
+                list.innerHTML += `
+                    <div class="note-card">
+                        <div style="font-size:10px; color:#999; margin-bottom:10px;">${note.lastEditedAt}</div>
+                        <div class="action-buttons">
+                            <button class="btn-small" onclick="showDetails('${note.id}')">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="12" r="0.5" fill="currentColor"></circle><circle cx="12" cy="12" r="0.5" fill="currentColor"></circle><circle cx="16" cy="12" r="0.5" fill="currentColor"></circle></svg>
+                            </button>
+                            <button class="btn-small" onclick="editNote('${note.id}')">Edit</button>
+                            <button class="btn-small" onclick="deleteNote('${note.id}')" style="color:#ff3b30">Delete</button>
+                        </div>
+                        <div class="note-content-preview" style="color:#333; line-height:1.6;">${note.content}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function editNote(id) {
+            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
+                const n = snap.val();
+                document.getElementById('editor').innerHTML = n.content;
+                currentEditingId = id;
+                document.getElementById('saveBtn').innerText = "Update Note";
+                window.scrollTo(0, 0);
+            });
+        }
+
+        function resetUI() {
+            currentEditingId = null;
+            document.getElementById('editor').innerHTML = '';
+            document.getElementById('saveBtn').innerText = "Save Note";
+        }
+
+        // --- 其他辅助函数 (保持不变) ---
         function togglePasswordVisibility() {
             const pInput = document.getElementById('password');
             const eyeIcon = document.getElementById('eyeIcon');
@@ -135,8 +252,6 @@
                 eyeIcon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
             }
         }
-
-        // 恢复文案逻辑
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
             document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
@@ -145,50 +260,12 @@
             document.getElementById('email').value = '';
             document.getElementById('password').value = '';
         }
-
         function getDeviceType() {
             const ua = navigator.userAgent;
             if (/Mobile|Android|iP(hone|od)/i.test(ua)) return "Mobile";
             if (/iPad|Tablet/i.test(ua)) return "Tablet";
             return "Desktop";
         }
-
-        function saveNote() {
-            const title = document.getElementById('noteTitle').value.trim();
-            const content = document.getElementById('noteContent').value.trim();
-            if (!title && !content) return;
-            const now = new Date().toLocaleString();
-            const device = getDeviceType();
-            if (currentEditingId) {
-                db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
-                    title: title, content: content, lastEditedAt: now, lastDevice: device
-                }).then(() => resetUI());
-            } else {
-                const id = Date.now().toString();
-                db.ref(`users/${currentUser.uid}/notes/${id}`).set({
-                    id: id, title: title, content: content, createdAt: now, lastEditedAt: now, lastDevice: device
-                }).then(() => resetUI());
-            }
-        }
-
-        function showDetails(id) {
-            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
-                const n = snap.val();
-                const charCount = (n.title + n.content).length;
-                const fileSize = new Blob([n.title + n.content]).size;
-                const html = `
-                    <div class="detail-item"><span class="detail-label">Characters:</span> <span>${charCount}</span></div>
-                    <div class="detail-item"><span class="detail-label">Size:</span> <span>${fileSize} Bytes</span></div>
-                    <div class="detail-item"><span class="detail-label">Created:</span> <span>${n.createdAt || 'N/A'}</span></div>
-                    <div class="detail-item"><span class="detail-label">Last Edit:</span> <span>${n.lastEditedAt}</span></div>
-                    <div class="detail-item"><span class="detail-label">Device:</span> <span>${n.lastDevice}</span></div>
-                `;
-                document.getElementById('detailsContent').innerHTML = html;
-                document.getElementById('detailsModal').classList.remove('hidden');
-            });
-        }
-
-        function closeDetails() { document.getElementById('detailsModal').classList.add('hidden'); }
         function handleAuth() {
             const e = document.getElementById('email').value;
             const p = document.getElementById('password').value;
@@ -196,49 +273,7 @@
         }
         function signOut() { auth.signOut(); }
         function deleteNote(id) { if(confirm("Delete?")) db.ref(`users/${currentUser.uid}/notes/${id}`).remove(); }
-        function editNote(id) {
-            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
-                const n = snap.val();
-                document.getElementById('noteTitle').value = n.title;
-                document.getElementById('noteContent').value = n.content;
-                currentEditingId = id;
-                document.getElementById('saveBtn').innerText = "Update Note";
-                window.scrollTo(0, 0);
-            });
-        }
-        function resetUI() {
-            currentEditingId = null;
-            document.getElementById('noteTitle').value = '';
-            document.getElementById('noteContent').value = '';
-            document.getElementById('saveBtn').innerText = "Save Note";
-        }
-
-        function renderNotes(data) {
-            const list = document.getElementById('notesList');
-            list.innerHTML = '';
-            if (!data) return;
-            Object.values(data).reverse().forEach(note => {
-                list.innerHTML += `
-                    <div class="note-card">
-                        <div style="font-size:10px; color:#999">${note.lastEditedAt}</div>
-                        <div class="action-buttons">
-                            <button class="btn-small" onclick="showDetails('${note.id}')">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <circle cx="8" cy="12" r="0.5" fill="currentColor"></circle>
-                                    <circle cx="12" cy="12" r="0.5" fill="currentColor"></circle>
-                                    <circle cx="16" cy="12" r="0.5" fill="currentColor"></circle>
-                                </svg>
-                            </button>
-                            <button class="btn-small" onclick="editNote('${note.id}')">Edit</button>
-                            <button class="btn-small" onclick="deleteNote('${note.id}')" style="color:#ff3b30">Delete</button>
-                        </div>
-                        <h3 style="margin: 10px 0 5px 0;">${note.title}</h3>
-                        <p style="white-space: pre-wrap; color:#333; margin:0;">${note.content}</p >
-                    </div>
-                `;
-            });
-        }
+        function closeDetails() { document.getElementById('detailsModal').classList.add('hidden'); }
     </script>
 </body>
 </html>
