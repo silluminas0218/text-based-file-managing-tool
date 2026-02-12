@@ -17,28 +17,9 @@
         /* --- Auth UI --- */
         #authContainer { width: 100%; max-width: 340px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
-        input { 
-            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; 
-            transition: border-color 0.3s;
-            background-color: white !important;
-        }
-        
-        input::placeholder {
-            color: #c7c7cc !important;
-            -webkit-text-fill-color: #c7c7cc !important; 
-            opacity: 1;
-        }
-
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px white inset !important;
-            -webkit-text-fill-color: #000 !important;
-            transition: background-color 5000s ease-in-out 0s;
-        }
-
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; transition: border-color 0.3s; background-color: white !important; }
+        input::placeholder { color: #c7c7cc !important; -webkit-text-fill-color: #c7c7cc !important; opacity: 1; }
+        input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 1000px white inset !important; -webkit-text-fill-color: #000 !important; transition: background-color 5000s ease-in-out 0s; }
         .password-wrapper { position: relative; width: 100%; margin-bottom: 15px; }
         #password { margin-bottom: 0; padding-right: 45px; }
         .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
@@ -49,28 +30,25 @@
         .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
         .toolbar button, .toolbar select { background: white; border: 1px solid #ddd; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
         
-        /* 这里的 transition 让字号切换时光标缩放更平滑 */
         #editor { 
-            min-height: 200px; 
-            max-height: 400px; 
-            padding: 15px; 
-            outline: none; 
-            overflow-y: auto; 
-            font-size: 16px; /* 默认 M 号 */
-            line-height: 1.5; 
-            background: #fff; 
-            width: 100%; 
-            word-wrap: break-word;
+            min-height: 200px; max-height: 400px; padding: 15px; outline: none; overflow-y: auto; 
+            font-size: 16px; /* 默认基准字号 */
+            line-height: 1.5; background: #fff; width: 100%; word-wrap: break-word; 
         }
-        #editor:empty:before { content: attr(placeholder); color: #999; font-size: 16px; }
+
+        /* 优化：Placeholder 字号现在会继承容器的 fontSize */
+        #editor:empty:before { 
+            content: attr(placeholder); 
+            color: #999; 
+            font-size: inherit; 
+            display: block;
+        }
 
         .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; transition: background 0.2s; }
         .btn-primary:active { background-color: #005bb5; }
-
         .note-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; position: relative; border: 1px solid #efeff4; width: 100%; word-wrap: break-word; }
         .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }
         .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; padding: 0; }
-        
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: white; width: 90%; max-width: 320px; padding: 25px; border-radius: 20px; }
     </style>
@@ -113,7 +91,7 @@
                 <button onclick="applyFormat('underline')"><u>U</u></button>
                 <button onclick="applyFormat('removeFormat')">✖</button>
             </div>
-            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncCaretSize()" onkeyup="syncCaretSize()"></div>
+            <div id="editor" contenteditable="true" placeholder="Tap here to write..." onmouseup="syncCaretSize()" onkeyup="syncCaretSize()" oninput="syncCaretSize()"></div>
         </div>
         <button class="btn-primary" id="saveBtn" onclick="saveNote()">Save Note</button>
         <div id="notesList" style="margin-top: 20px;"></div>
@@ -140,7 +118,7 @@
         let currentUser = null;
         let isSignUpMode = false;
 
-        // 字号级别到像素的映射（为了同步空框时的光标）
+        // 字号级别到像素的精准映射（对应浏览器原生 fontSize 1-7）
         const sizeMap = { "1":"10px", "2":"13px", "3":"16px", "4":"18px", "5":"24px", "6":"32px", "7":"48px" };
 
         auth.onAuthStateChanged(user => {
@@ -161,58 +139,39 @@
             }
         });
 
-        // 核心修改：应用字号并同步环境
+        // 核心修复：应用字号
         function applyFontSize(size) {
             const editor = document.getElementById('editor');
             editor.focus();
             
-            // 1. 执行原生命令（针对已选文字或后续输入）
+            // 1. 改变容器的基准字号 -> 这会立即改变“空光标”高度和 Placeholder 大小
+            editor.style.fontSize = sizeMap[size];
+            
+            // 2. 执行原生命令 -> 确保接下来的输入带有正确的字号标签
             document.execCommand('fontSize', false, size);
-            
-            // 2. 针对“空框”情况，直接修改编辑器的基准字号，让光标瞬间变大/变小
-            if (editor.innerText.trim() === "") {
-                editor.style.fontSize = sizeMap[size];
-            }
         }
 
-        // 核心修改：当光标移动时，强制让它服从下拉菜单的设定
+        // 核心修复：光标同步逻辑
         function syncCaretSize() {
-            const size = document.getElementById('fontSizeSelect').value;
             const editor = document.getElementById('editor');
+            const select = document.getElementById('fontSizeSelect');
             
-            // 如果用户正在打字或移动光标，重新宣告当前的字号主权
-            // 这能防止光标跳到小字后面时突然变小
-            if (size) {
-                document.execCommand('fontSize', false, size);
-            }
+            // 获取光标当前所在位置的计算字号等级 (1-7)
+            const currentSize = document.queryCommandValue('fontSize');
             
-            // 如果内容被删空了，确保光标回到下拉菜单选中的高度
-            if (editor.innerText.trim() === "") {
-                editor.style.fontSize = sizeMap[size];
-            } else {
-                // 如果有内容，基准字号设为默认，由内部的 <font> 标签控制各段大小
-                editor.style.fontSize = "16px"; 
+            if (currentSize && sizeMap[currentSize]) {
+                // 如果光标移动到了不同大小的文字上，更新下拉菜单
+                select.value = currentSize;
+                // 同时更新容器基准字号，确保光标视觉高度同步
+                editor.style.fontSize = sizeMap[currentSize];
+            } else if (editor.innerText.trim() === "") {
+                // 如果是空的，维持下拉菜单选中的字号
+                editor.style.fontSize = sizeMap[select.value];
             }
         }
 
-        function applyFormat(cmd) {
-            document.execCommand(cmd, false, null);
-            document.getElementById('editor').focus();
-        }
-
-        function handleAuth() {
-            const e = document.getElementById('email').value;
-            const p = document.getElementById('password').value;
-            if(!e || !p) return;
-            const btn = document.getElementById('mainAuthBtn');
-            btn.innerText = "Processing...";
-            if (isSignUpMode) {
-                auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; });
-            } else {
-                auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; });
-            }
-        }
-
+        function applyFormat(cmd) { document.execCommand(cmd, false, null); document.getElementById('editor').focus(); }
+        function signOut() { auth.signOut(); }
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
             document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
@@ -221,7 +180,6 @@
             document.getElementById('email').value = '';
             document.getElementById('password').value = '';
         }
-
         function saveNote() {
             const editor = document.getElementById('editor');
             const html = editor.innerHTML.trim();
@@ -231,42 +189,28 @@
             db.ref(`users/${currentUser.uid}/notes/${id}`).set({ id, content: html, lastEditedAt: now });
             resetUI();
         }
-
         function resetUI() {
             const editor = document.getElementById('editor');
             editor.innerHTML = '';
-            document.getElementById('saveBtn').innerText = "Save Note";
             document.getElementById('fontSizeSelect').value = "3";
-            editor.style.fontSize = "16px"; // 重置回标准光标大小
+            editor.style.fontSize = "16px";
         }
-
         function renderNotes(data) {
             const list = document.getElementById('notesList');
             list.innerHTML = '';
             if (!data) return;
             Object.values(data).reverse().forEach(note => {
-                list.innerHTML += `
-                    <div class="note-card">
-                        <div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div>
-                        <div style="font-size:14px;">${note.content}</div>
-                    </div>`;
+                list.innerHTML += `<div class="note-card"><div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div><div style="font-size:14px;">${note.content}</div></div>`;
             });
         }
-
-        function signOut() { auth.signOut(); }
-        function deleteAccount() {
-            if (!confirm("Delete everything?")) return;
-            const user = firebase.auth().currentUser;
-            db.ref('users/' + user.uid).remove().then(() => user.delete());
+        function handleAuth() {
+            const e = document.getElementById('email').value; const p = document.getElementById('password').value; if(!e || !p) return;
+            const btn = document.getElementById('mainAuthBtn'); btn.innerText = "Processing...";
+            isSignUpMode ? auth.createUserWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign Up"; }) : auth.signInWithEmailAndPassword(e, p).catch(err => { alert(err.message); btn.innerText = "Sign In"; });
         }
-
         document.addEventListener('DOMContentLoaded', () => {
             const pInput = document.getElementById('password');
-            pInput.addEventListener('change', () => {
-                if (!isSignUpMode && document.getElementById('email').value && pInput.value) {
-                    handleAuth();
-                }
-            });
+            pInput.addEventListener('change', () => { if (!isSignUpMode && document.getElementById('email').value && pInput.value) handleAuth(); });
         });
     </script>
 </body>
