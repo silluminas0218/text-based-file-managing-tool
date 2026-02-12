@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Cloud Notepad</title>
+    <title>Professional Cloud Note</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -14,38 +14,21 @@
         body { font-family: -apple-system, sans-serif; background-color: #f2f2f7; margin: 0; display: flex; justify-content: center; min-height: 100vh; overflow-x: hidden; }
         .hidden { display: none !important; }
         
-        /* --- Auth UI --- */
+        /* --- Auth Section --- */
         #authContainer { width: 100%; max-width: 340px; padding: 40px 20px; text-align: center; }
         .auth-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
         input { 
             width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; margin-bottom: 15px; font-size: 16px; 
-            transition: border-color 0.3s;
-            background-color: white !important;
+            transition: border-color 0.3s; background-color: white !important;
         }
-        
-        /* 修复 1: 强制设置提示词颜色为浅灰色 */
-        input::placeholder {
-            color: #c7c7cc !important;
-            -webkit-text-fill-color: #c7c7cc !important; 
-            opacity: 1;
-        }
-
-        /* 去除自动填充后的黄色背景 */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 1000px white inset !important;
-            -webkit-text-fill-color: #000 !important; /* 填充后文字变黑 */
-            transition: background-color 5000s ease-in-out 0s;
-        }
+        input::placeholder { color: #c7c7cc !important; -webkit-text-fill-color: #c7c7cc !important; opacity: 1; }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px white inset !important; -webkit-text-fill-color: #000 !important; }
 
         .password-wrapper { position: relative; width: 100%; margin-bottom: 15px; }
         #password { margin-bottom: 0; padding-right: 45px; }
         .toggle-password { position: absolute; right: 0; top: 0; height: 100%; width: 40px !important; background: none !important; border: none; cursor: pointer; color: #8e8e93; display: flex; align-items: center; justify-content: center; z-index: 2; }
 
-        /* --- App UI --- */
+        /* --- App Section --- */
         #appContainer { width: 100%; max-width: 500px; padding: 15px; }
         .editor-container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px; border: 1px solid #e5e5ea; width: 100%; }
         .toolbar { background: #f8f8f8; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
@@ -53,13 +36,14 @@
         #editor { min-height: 200px; max-height: 400px; padding: 15px; outline: none; overflow-y: auto; font-size: 16px; line-height: 1.5; background: #fff; width: 100%; word-wrap: break-word; }
         #editor:empty:before { content: attr(placeholder); color: #999; }
 
-        .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; transition: background 0.2s; }
-        .btn-primary:active { background-color: #005bb5; }
+        .btn-primary { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background-color: #007aff; color: white; font-size: 16px; }
 
+        /* --- Note Cards (按钮在此) --- */
         .note-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; position: relative; border: 1px solid #efeff4; width: 100%; word-wrap: break-word; }
-        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; }
-        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; padding: 0; }
+        .action-buttons { position: absolute; right: 15px; top: 15px; display: flex; gap: 10px; z-index: 5; }
+        .btn-small { background: none; border: none; cursor: pointer; color: #8e8e93; width: auto; padding: 0; display: flex; align-items: center; }
         
+        /* Modal */
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: white; width: 90%; max-width: 320px; padding: 25px; border-radius: 20px; }
     </style>
@@ -107,8 +91,15 @@
         </div>
     </div>
 
+    <div id="detailsModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 style="margin-top:0">Note Info</h3>
+            <div id="detailsContent"></div>
+            <button class="btn-primary" onclick="closeDetails()" style="margin-top:20px">Close</button>
+        </div>
+    </div>
+
     <script>
-        // --- 填入你的 Firebase 配置 ---
         const firebaseConfig = {
             apiKey: "AIzaSyBdWwwAQKf2WVABXqmOEyL2jVQeQXkvg1o",
             authDomain: "web-notepad-1c001.firebaseapp.com",
@@ -124,81 +115,54 @@
         const db = firebase.database();
 
         let currentUser = null;
+        let currentEditingId = null;
         let isSignUpMode = false;
 
-        // --- 修复 2: 在状态变化时复原 UI ---
         auth.onAuthStateChanged(user => {
             const authBtn = document.getElementById('mainAuthBtn');
             if (user) {
                 currentUser = user;
-                // 清空输入并重置按钮文字
                 document.getElementById('email').value = '';
                 document.getElementById('password').value = '';
                 authBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
-                
                 document.getElementById('authContainer').classList.add('hidden');
                 document.getElementById('appContainer').classList.remove('hidden');
                 db.ref(`users/${user.uid}/notes`).on('value', snap => renderNotes(snap.val()));
             } else {
                 currentUser = null;
-                // 确保登出后按钮不再是 "Processing..."
                 authBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
                 document.getElementById('authContainer').classList.remove('hidden');
                 document.getElementById('appContainer').classList.add('hidden');
             }
         });
 
-        // 自动登录检测
+        // 自动登录
         document.addEventListener('DOMContentLoaded', () => {
             const pInput = document.getElementById('password');
             pInput.addEventListener('change', () => {
-                if (!isSignUpMode && document.getElementById('email').value && pInput.value) {
-                    handleAuth();
-                }
+                if (!isSignUpMode && document.getElementById('email').value && pInput.value) handleAuth();
             });
         });
 
-        function handleAuth() {
-            const e = document.getElementById('email').value;
-            const p = document.getElementById('password').value;
-            if(!e || !p) return;
+        function saveNote() {
+            const editor = document.getElementById('editor');
+            const html = editor.innerHTML.trim();
+            if (editor.innerText.trim() === "" && html === "") return;
+            const now = new Date().toLocaleString();
+            const device = (window.innerWidth < 768) ? "Mobile" : "Desktop";
             
-            const btn = document.getElementById('mainAuthBtn');
-            btn.innerText = "Processing...";
-            
-            if (isSignUpMode) {
-                auth.createUserWithEmailAndPassword(e, p).catch(err => {
-                    alert(err.message);
-                    btn.innerText = "Sign Up";
-                });
+            if (currentEditingId) {
+                db.ref(`users/${currentUser.uid}/notes/${currentEditingId}`).update({
+                    content: html, lastEditedAt: now, lastDevice: device
+                }).then(() => resetUI());
             } else {
-                auth.signInWithEmailAndPassword(e, p).catch(err => {
-                    alert(err.message);
-                    btn.innerText = "Sign In";
-                });
+                const id = Date.now().toString();
+                db.ref(`users/${currentUser.uid}/notes/${id}`).set({
+                    id: id, content: html, createdAt: now, lastEditedAt: now, lastDevice: device
+                }).then(() => resetUI());
             }
         }
 
-        /* 原有功能逻辑保持不变... */
-        function applyFontSize(size) { document.getElementById('editor').focus(); document.execCommand('fontSize', false, size); }
-        function applyFormat(cmd) { document.execCommand(cmd, false, null); document.getElementById('editor').focus(); }
-        function signOut() { auth.signOut(); }
-        function toggleAuthMode() {
-            isSignUpMode = !isSignUpMode;
-            document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
-            document.getElementById('mainAuthBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
-            document.getElementById('toggleAuthBtn').innerText = isSignUpMode ? "Already have an account? Login" : "New here? Create account";
-            document.getElementById('email').value = '';
-            document.getElementById('password').value = '';
-        }
-        function saveNote() {
-            const html = document.getElementById('editor').innerHTML.trim();
-            if (document.getElementById('editor').innerText.trim() === "" && html === "") return;
-            const now = new Date().toLocaleString();
-            const id = Date.now().toString();
-            db.ref(`users/${currentUser.uid}/notes/${id}`).set({ id, content: html, lastEditedAt: now });
-            document.getElementById('editor').innerHTML = '';
-        }
         function renderNotes(data) {
             const list = document.getElementById('notesList');
             list.innerHTML = '';
@@ -207,10 +171,78 @@
                 list.innerHTML += `
                     <div class="note-card">
                         <div style="font-size:10px; color:#999; margin-bottom:8px;">${note.lastEditedAt}</div>
+                        <div class="action-buttons">
+                            <button class="btn-small" onclick="showDetails('${note.id}')">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="0.5" fill="currentColor"></circle><circle cx="8" cy="12" r="0.5" fill="currentColor"></circle><circle cx="16" cy="12" r="0.5" fill="currentColor"></circle></svg>
+                            </button>
+                            <button class="btn-small" onclick="editNote('${note.id}')" style="font-size:12px; color:#007aff; margin-left:5px;">Edit</button>
+                            <button class="btn-small" onclick="deleteNote('${note.id}')" style="font-size:12px; color:#ff3b30; margin-left:5px;">Delete</button>
+                        </div>
                         <div style="font-size:14px;">${note.content}</div>
                     </div>`;
             });
         }
+
+        function showDetails(id) {
+            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
+                const n = snap.val();
+                const temp = document.createElement("div");
+                temp.innerHTML = n.content;
+                const html = `
+                    <p style="font-size:13px; color:#666;">Chars: <b>${temp.innerText.length}</b></p >
+                    <p style="font-size:13px; color:#666;">Modified: <b>${n.lastEditedAt}</b></p >
+                    <p style="font-size:13px; color:#666;">Device: <b>${n.lastDevice || 'Unknown'}</b></p >
+                `;
+                document.getElementById('detailsContent').innerHTML = html;
+                document.getElementById('detailsModal').classList.remove('hidden');
+            });
+        }
+
+        function editNote(id) {
+            db.ref(`users/${currentUser.uid}/notes/${id}`).once('value').then(snap => {
+                document.getElementById('editor').innerHTML = snap.val().content;
+                currentEditingId = id;
+                document.getElementById('saveBtn').innerText = "Update Note";
+                window.scrollTo(0, 0);
+            });
+        }
+
+        function deleteNote(id) {
+            if(confirm("Delete this note?")) db.ref(`users/${currentUser.uid}/notes/${id}`).remove();
+        }
+
+        function resetUI() {
+            currentEditingId = null;
+            document.getElementById('editor').innerHTML = '';
+            document.getElementById('saveBtn').innerText = "Save Note";
+        }
+
+        function handleAuth() {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            if(!e || !p) return;
+            const btn = document.getElementById('mainAuthBtn');
+            btn.innerText = "Processing...";
+            isSignUpMode ? auth.createUserWithEmailAndPassword(e, p) : auth.signInWithEmailAndPassword(e, p);
+        }
+
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('authTitle').innerText = isSignUpMode ? "Create Account" : "Sign In";
+            document.getElementById('mainAuthBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
+            document.getElementById('toggleAuthBtn').innerText = isSignUpMode ? "Already have an account? Login" : "New here? Create account";
+            document.getElementById('email').value = ''; document.getElementById('password').value = '';
+        }
+
+        function signOut() { auth.signOut(); }
+        function deleteAccount() { if(confirm("Delete account?")) { const u = auth.currentUser; db.ref('users/'+u.uid).remove().then(()=>u.delete()); } }
+        function applyFontSize(s) { document.getElementById('editor').focus(); document.execCommand('fontSize', false, s); }
+        function applyFormat(c) { document.execCommand(c, false, null); document.getElementById('editor').focus(); }
+        function togglePasswordVisibility() {
+            const p = document.getElementById('password');
+            p.type = p.type === 'password' ? 'text' : 'password';
+        }
+        function closeDetails() { document.getElementById('detailsModal').classList.add('hidden'); }
     </script>
 </body>
 </html>
